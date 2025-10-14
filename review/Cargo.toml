@@ -1,0 +1,13 @@
+[package]
+name = "typst-package-review"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0"
+dirs = "6.0"
+git2 = "0.20.2"
+glob = "0.3.3"
+ignore = "0.4.23"
+toml = "0.9.8"
+typst-syntax = "0.13.0"
