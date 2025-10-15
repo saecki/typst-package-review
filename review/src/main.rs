@@ -68,17 +68,18 @@ fn run() -> anyhow::Result<()> {
 
     println!("=== Fetch ===");
     checkout_pr(&args)?;
-
     println!();
-    println!("=== Install ===");
-    std::fs::create_dir("test").context("failed to create `test` directory")?;
 
+    println!("=== Install ===");
     let manifests = (packages.iter())
         .map(install_package)
         .collect::<Result<Vec<_>, _>>()?;
+    println!();
 
+    println!("=== Test ===");
+    std::fs::create_dir_all("test").context("failed to create `test` directory")?;
     for (package, manifest) in packages.iter().zip(manifests.iter()) {
-        review_package(package, manifest)?;
+        test_package(package, manifest)?;
     }
 
     Ok(())
@@ -231,7 +232,7 @@ fn install_package(Package { name, vers }: &Package) -> anyhow::Result<PackageMa
     Ok(manifest)
 }
 
-fn review_package(
+fn test_package(
     package @ Package { name, .. }: &Package,
     manifest: &PackageManifest,
 ) -> anyhow::Result<()> {
