@@ -78,11 +78,15 @@ fn run() -> anyhow::Result<()> {
 
     println!("=== Test ===");
     std::fs::create_dir_all("test").context("failed to create `test` directory")?;
+    let mut res = Ok(());
     for (package, manifest) in packages.iter().zip(manifests.iter()) {
-        test_package(package, manifest)?;
+        let r = test_package(package, manifest);
+        if res.is_ok() {
+            res = r;
+        }
     }
 
-    Ok(())
+    res
 }
 
 fn parse_args<'a>(args: &[&'a str]) -> anyhow::Result<Args<'a>> {
