@@ -261,12 +261,14 @@ fn test_package(
 
         // Try to compile template.
         let entrypoint = template_dir.join(template.entrypoint.as_str());
-        let entrypoint = entrypoint
-            .into_os_string()
-            .into_string()
-            .expect("valid utf-8");
-        println!("compile template {ANSII_GREEN}{entrypoint}{ANSII_CLEAR}");
-        run_command("typst", ["compile", &entrypoint])?;
+        let entrypoint_str = entrypoint.to_str().expect("valid utf-8");
+        println!("compile template {ANSII_GREEN}{entrypoint_str}{ANSII_CLEAR}");
+        run_command("typst", ["compile", entrypoint_str])?;
+
+        // Open the PDF
+        let pdf = entrypoint.with_extension("pdf");
+        let pdf_str = pdf.to_str().expect("valid utf-8");
+        run_command("xdg-open", [pdf_str])?;
     }
 
     Ok(())
