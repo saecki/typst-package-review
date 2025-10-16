@@ -3,7 +3,7 @@ use git2::{BranchType, FetchOptions, Repository};
 use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
 use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 use typst_syntax::package::PackageManifest;
 
@@ -240,7 +240,7 @@ fn test_package(
     package @ Package { name, .. }: &Package,
     manifest: &PackageManifest,
 ) -> anyhow::Result<()> {
-    if manifest.template.is_some() {
+    if let Some(template) = &manifest.template {
         // Initialize template
         let spec = &package.spec();
         println!("initialize template {ANSII_GREEN}{spec}{ANSII_CLEAR}");
@@ -260,28 +260,16 @@ fn test_package(
         )?;
 
         // Try to compile template.
-        if let Some(path) = guess_template_entrypoint(&template_dir) {
-            println!("compile template {ANSII_GREEN}{path}{ANSII_CLEAR}");
-            run_command("typst", ["compile", &path])?;
-        }
+        let entrypoint = template_dir.join(template.entrypoint.as_str());
+        let entrypoint = entrypoint
+            .into_os_string()
+            .into_string()
+            .expect("valid utf-8");
+        println!("compile template {ANSII_GREEN}{entrypoint}{ANSII_CLEAR}");
+        run_command("typst", ["compile", &entrypoint])?;
     }
 
     Ok(())
-}
-
-fn guess_template_entrypoint(template_dir: &Path) -> Option<String> {
-    const CANDIATES: [&str; 4] = ["main.typ", "thesis.typ", "report.typ", "cv.typ"];
-    for candidate in CANDIATES.iter() {
-        let candidate_path = template_dir.join(candidate);
-        if candidate_path.exists() {
-            let str = candidate_path
-                .into_os_string()
-                .into_string()
-                .expect("valid utf-8");
-            return Some(str);
-        }
-    }
-    None
 }
 
 fn run_command<const N: usize>(cmd: &str, args: [&str; N]) -> anyhow::Result<()> {
