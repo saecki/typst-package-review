@@ -54,35 +54,75 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
+#[derive(Clone, Copy)]
+enum Cmd {
+    Review,
+    Fetch,
+    Install,
+}
+
+impl Cmd {
+    fn fetch(&self) -> bool {
+        match self {
+            Cmd::Review | Cmd::Fetch => true,
+            Cmd::Install => false,
+        }
+    }
+
+    fn install(&self) -> bool {
+        match self {
+            Cmd::Review | Cmd::Install => true,
+            Cmd::Fetch => false,
+        }
+    }
+}
+
 fn run() -> anyhow::Result<()> {
-    let args = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
+    let mut args = std::env::args();
+    args.next();
+    let Some(cmd) = args.next() else {
+        bail!("missing command");
+    };
+
+    let cmd = match cmd.as_str() {
+        "review" => Cmd::Review,
+        "fetch" => Cmd::Fetch,
+        "install" => Cmd::Install,
+        _ => bail!("unknown command `{cmd}`"),
+    };
+
+    let args = args.collect::<Vec<_>>().join(" ");
     let args: Vec<_> = args.split(' ').filter(|s| !s.is_empty()).collect();
     let args = parse_args(&args)?;
 
     let Args { packages, pr_nr } = &args;
-    println!("Review PR {ANSII_YELLOW}#{pr_nr}{ANSII_CLEAR}");
+    println!("PR {ANSII_YELLOW}#{pr_nr}{ANSII_CLEAR}");
     for Package { name, vers } in packages.iter() {
         println!("  {ANSII_BLUE}{name}{ANSII_CLEAR} v{vers}");
     }
     println!();
 
-    println!("=== Fetch ===");
-    checkout_pr(&args)?;
-    println!();
+    if cmd.fetch() {
+        println!("=== Fetch ===");
+        checkout_pr(&args)?;
+        println!();
+    }
 
-    println!("=== Install ===");
-    let manifests = (packages.iter())
-        .map(install_package)
-        .collect::<Result<Vec<_>, _>>()?;
-    println!();
-
-    println!("=== Test ===");
-    std::fs::create_dir_all("test").context("failed to create `test` directory")?;
     let mut res = Ok(());
-    for (package, manifest) in packages.iter().zip(manifests.iter()) {
-        let r = test_package(package, manifest);
-        if res.is_ok() {
-            res = r;
+    if cmd.install() {
+        println!("=== Install ===");
+        let manifests = (packages.iter())
+            .map(install_package)
+            .collect::<Result<Vec<_>, _>>()?;
+        println!();
+
+        println!("=== Test ===");
+        std::fs::create_dir_all("test").context("failed to create `test` directory")?;
+        for (package, manifest) in packages.iter().zip(manifests.iter()) {
+            let r = test_package(package, manifest);
+            if res.is_ok() {
+                res = r;
+            }
         }
     }
 
