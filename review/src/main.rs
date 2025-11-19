@@ -88,6 +88,7 @@ fn run() -> anyhow::Result<()> {
         "review" => Cmd::Review,
         "fetch" => Cmd::Fetch,
         "install" => Cmd::Install,
+        "clean" => return clean(),
         _ => bail!("unknown command `{cmd}`"),
     };
 
@@ -322,6 +323,29 @@ fn run_command<const N: usize>(cmd: &str, args: [&str; N]) -> anyhow::Result<()>
 
     if !status.success() {
         bail!("command failed");
+    }
+
+    Ok(())
+}
+
+fn clean() -> anyhow::Result<()> {
+    let mut target_dir = dirs::data_dir().expect("data dir");
+    target_dir.extend(["typst", "packages", "preview"]);
+
+    let Ok(packages) = std::fs::read_dir(&target_dir) else {
+        println!(
+            "The package directory wasn't found at: `{}`",
+            target_dir.display()
+        );
+        return Ok(());
+    };
+    for package in packages {
+        let entry = package.context("failed to read package dir")?;
+        println!(
+            "remove package {ANSII_RED}{}{ANSII_CLEAR}",
+            entry.path().display()
+        );
+        std::fs::remove_dir_all(entry.path()).context("failed to remove package")?;
     }
 
     Ok(())
