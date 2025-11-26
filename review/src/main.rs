@@ -3,7 +3,7 @@ use git2::{BranchType, FetchOptions, Repository};
 use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
 use std::fmt::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use typst_syntax::package::PackageManifest;
 
@@ -331,22 +331,28 @@ fn run_command<const N: usize>(cmd: &str, args: [&str; N]) -> anyhow::Result<()>
 fn clean() -> anyhow::Result<()> {
     let mut target_dir = dirs::data_dir().expect("data dir");
     target_dir.extend(["typst", "packages", "preview"]);
+    clear_directory(&target_dir).context("failed to clean target directory")?;
+    clear_directory("test".as_ref()).context("failed to clean target directory")?;
+    Ok(())
+}
 
-    let Ok(packages) = std::fs::read_dir(&target_dir) else {
-        println!(
-            "The package directory wasn't found at: `{}`",
-            target_dir.display()
-        );
+fn clear_directory(dir: &Path) -> anyhow::Result<()> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        println!("directory wasn't found at: `{}`", dir.display());
         return Ok(());
     };
-    for package in packages {
-        let entry = package.context("failed to read package dir")?;
+    for entry in entries {
+        let entry = entry.context("failed to read entry")?;
         println!(
-            "remove package {ANSII_RED}{}{ANSII_CLEAR}",
+            "remove {ANSII_RED}{}{ANSII_CLEAR}",
             entry.path().display()
         );
-        std::fs::remove_dir_all(entry.path()).context("failed to remove package")?;
+        let file_type = entry.file_type().context("failed to read entry")?;
+        if file_type.is_dir() {
+            std::fs::remove_dir_all(entry.path()).context("failed to remove directory")?;
+        } else {
+            std::fs::remove_file(entry.path()).context("failed to remove file")?;
+        }
     }
-
     Ok(())
 }
