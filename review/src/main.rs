@@ -333,6 +333,7 @@ fn clean() -> anyhow::Result<()> {
     target_dir.extend(["typst", "packages", "preview"]);
     clear_directory(&target_dir).context("failed to clean target directory")?;
     clear_directory("test".as_ref()).context("failed to clean target directory")?;
+    remove_other_branches().context("failed to clean branches")?;
     Ok(())
 }
 
@@ -343,10 +344,7 @@ fn clear_directory(dir: &Path) -> anyhow::Result<()> {
     };
     for entry in entries {
         let entry = entry.context("failed to read entry")?;
-        println!(
-            "remove {ANSII_RED}{}{ANSII_CLEAR}",
-            entry.path().display()
-        );
+        println!("remove {ANSII_RED}{}{ANSII_CLEAR}", entry.path().display());
         let file_type = entry.file_type().context("failed to read entry")?;
         if file_type.is_dir() {
             std::fs::remove_dir_all(entry.path()).context("failed to remove directory")?;
@@ -354,5 +352,30 @@ fn clear_directory(dir: &Path) -> anyhow::Result<()> {
             std::fs::remove_file(entry.path()).context("failed to remove file")?;
         }
     }
+    Ok(())
+}
+
+fn remove_other_branches() -> Result<(), git2::Error> {
+    let repo = Repository::open("packages")?;
+
+    // Make sure we're on the `main` branch.
+    if repo.head()?.name() != Some("main") {
+        checkout_branch(&repo, "main")?;
+    }
+
+    // Make sure the branch doesn't exist
+    let local_branches = repo.branches(Some(BranchType::Local))?;
+    for b in local_branches {
+        let (mut branch, _) = b?;
+        let Some(branch_name) = branch.name()? else {
+            continue;
+        };
+
+        if branch_name != "main" {
+            println!("remove branch {ANSII_RED}{branch_name}{ANSII_CLEAR}");
+            branch.delete()?;
+        }
+    }
+
     Ok(())
 }
