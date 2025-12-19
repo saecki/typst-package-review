@@ -237,6 +237,7 @@ fn install_package(Package { name, vers }: &Package) -> anyhow::Result<PackageMa
         if exclude.starts_with('!') {
             bail!("exclude globs cannot start with `!` - `{exclude}`");
         }
+        let exclude = exclude.trim_start_matches("./");
         let inverted = format!("!{exclude}");
         builder.add(&inverted).context("invalid exclude glob")?;
     }
