@@ -93,7 +93,17 @@ fn run() -> anyhow::Result<()> {
     };
 
     let args = args.collect::<Vec<_>>().join(" ");
-    let args: Vec<_> = args.split(' ').filter(|s| !s.is_empty()).collect();
+    let args: Vec<_> = args
+        .split(' ')
+        .flat_map(|s| {
+            if let Some(i) = s.find('#') {
+                [&s[..i], &s[i..]]
+            } else {
+                [s, ""]
+            }
+        })
+        .filter(|s| !s.is_empty())
+        .collect();
     let args = parse_args(&args)?;
 
     let Args { packages, pr_nr } = &args;
