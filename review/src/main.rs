@@ -1,4 +1,5 @@
 use anyhow::{Context, bail};
+use git2::build::CheckoutBuilder;
 use git2::{BranchType, FetchOptions, Repository};
 use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
@@ -344,7 +345,7 @@ fn clean() -> anyhow::Result<()> {
     target_dir.extend(["typst", "packages", "preview"]);
     clear_directory(&target_dir).context("failed to clean target directory")?;
     clear_directory("test".as_ref()).context("failed to clean target directory")?;
-    remove_other_branches().context("failed to clean branches")?;
+    remove_other_branches_and_pull_main().context("failed to clean branches")?;
     Ok(())
 }
 
@@ -366,7 +367,7 @@ fn clear_directory(dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn remove_other_branches() -> Result<(), git2::Error> {
+fn remove_other_branches_and_pull_main() -> Result<(), git2::Error> {
     let repo = Repository::open("packages")?;
 
     // Make sure we're on the `main` branch.
@@ -374,7 +375,7 @@ fn remove_other_branches() -> Result<(), git2::Error> {
         checkout_branch(&repo, "main")?;
     }
 
-    // Make sure the branch doesn't exist
+    // Remove all other branches.
     let local_branches = repo.branches(Some(BranchType::Local))?;
     for b in local_branches {
         let (mut branch, _) = b?;
@@ -387,6 +388,25 @@ fn remove_other_branches() -> Result<(), git2::Error> {
             branch.delete()?;
         }
     }
+
+    // Pull changes
+    let mut origin = repo.find_remote("origin")?;
+    let refspec = "main";
+    println!("pulling {ANSII_YELLOW}{refspec}{ANSII_CLEAR}");
+    let mut fetch_opts = FetchOptions::new();
+    origin.fetch(&[refspec], Some(&mut fetch_opts), None)?;
+
+    // Find newest commit.
+    let fetch_commit = {
+        let fetch_head = repo.find_reference("FETCH_HEAD")?;
+        repo.reference_to_annotated_commit(&fetch_head)?
+    };
+    let mut r = repo.find_reference("refs/heads/main")?;
+
+    // Checkout
+    r.set_target(fetch_commit.id(), "fast-forward: checkout main")?;
+    repo.set_head(r.name().unwrap())?;
+    repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
 
     Ok(())
 }
