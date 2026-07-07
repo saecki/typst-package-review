@@ -11,3 +11,4 @@ glob = "0.3.3"
 ignore = "0.4.25"
 toml = "0.9.8"
 typst-syntax = "0.14.0"
+open = { version = "5.3.6", default-features = false }

@@ -321,12 +321,13 @@ fn test_package(
         // Open the PDF
         let pdf = entrypoint.with_extension("pdf");
         let pdf_str = pdf.to_str().expect("valid utf-8");
-        run_command("xdg-open", [pdf_str])?;
+        open::that(pdf_str)?;
     }
 
     Ok(())
 }
 
+#[track_caller]
 fn run_command<const N: usize>(cmd: &str, args: [&str; N]) -> anyhow::Result<()> {
     let status = Command::new(cmd)
         .args(args)
