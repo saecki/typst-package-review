@@ -49,7 +49,7 @@ impl Package<'_> {
 
 fn main() -> ExitCode {
     if let Err(e) = run() {
-        eprintln!("{e}");
+        eprintln!("{e:#}");
         return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS
