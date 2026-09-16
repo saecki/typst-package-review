@@ -3,6 +3,7 @@ use git2::build::CheckoutBuilder;
 use git2::{BranchType, FetchOptions, Repository};
 use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -122,6 +123,13 @@ fn run() -> anyhow::Result<()> {
 
     let mut res = Ok(());
     if cmd.install() {
+        println!("=== Check ===");
+        packages
+            .par_iter()
+            .map(|package| check_package(package))
+            .collect::<anyhow::Result<()>>()?;
+        println!();
+
         println!("=== Install ===");
         let manifests = (packages.iter())
             .map(install_package)
@@ -289,6 +297,17 @@ fn install_package(Package { name, vers }: &Package) -> anyhow::Result<PackageMa
     Ok(manifest)
 }
 
+fn check_package(package: &Package) -> anyhow::Result<()> {
+    let spec = &package.spec();
+
+    println!("check {ANSII_YELLOW}{spec}{ANSII_CLEAR}");
+    run_command(
+        "typst-package-check",
+        Some("packages/packages"),
+        ["check", spec],
+    )
+}
+
 fn test_package(
     package @ Package { name, .. }: &Package,
     manifest: &PackageManifest,
@@ -309,6 +328,7 @@ fn test_package(
 
         run_command(
             "typst",
+            None,
             ["init", spec, template_dir.to_str().expect("valid ASCII")],
         )?;
 
@@ -316,7 +336,7 @@ fn test_package(
         let entrypoint = template_dir.join(template.entrypoint.as_str());
         let entrypoint_str = entrypoint.to_str().expect("valid utf-8");
         println!("compile template {ANSII_GREEN}{entrypoint_str}{ANSII_CLEAR}");
-        run_command("typst", ["compile", entrypoint_str])?;
+        run_command("typst", None, ["compile", entrypoint_str])?;
 
         // Open the PDF
         let pdf = entrypoint.with_extension("pdf");
@@ -328,11 +348,17 @@ fn test_package(
 }
 
 #[track_caller]
-fn run_command<const N: usize>(cmd: &str, args: [&str; N]) -> anyhow::Result<()> {
-    let status = Command::new(cmd)
-        .args(args)
-        .status()
-        .expect("failed to execute process");
+fn run_command<const N: usize>(
+    cmd: &str,
+    work_dir: Option<&str>,
+    args: [&str; N],
+) -> anyhow::Result<()> {
+    let mut cmd = Command::new(cmd);
+    cmd.args(args);
+    if let Some(dir) = work_dir {
+        cmd.current_dir(dir);
+    }
+    let status = cmd.status().expect("failed to execute process");
 
     if !status.success() {
         bail!("command failed");
