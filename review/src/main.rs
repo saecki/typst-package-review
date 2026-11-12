@@ -303,7 +303,7 @@ fn check_package(package: &Package) -> anyhow::Result<()> {
     println!("check {ANSII_YELLOW}{spec}{ANSII_CLEAR}");
     run_command(
         "typst-package-check",
-        Some("packages/packages"),
+        Some("packages"),
         ["check", spec],
     )
 }
